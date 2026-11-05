@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guarded Agent Checkout — a pre-flight guard for AI agent payments</title>
+<meta name="description" content="An AI agent that can pay is an AI agent that can be robbed. Guarded Agent Checkout checks every agent payment proposal — ALLOW, HOLD or BLOCK — before any PayPal money moves.">
+<style>
+  :root{
+    --bg:#0b0f14;
+    --card:#101725;
+    --card-border:#22304a;
+    --text:#e8eef7;
+    --muted:#9fb0c7;
+    --faint:#6b7d99;
+    --green:#2ee6a8;
+    --red:#ff6b6b;
+    --amber:#ffb454;
+    --accent:#5eb1ff;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1020px;margin:0 auto;padding:0 20px}
+
+  /* ---------- header ---------- */
+  header{padding:72px 0 40px;text-align:left}
+  .eyebrow{
+    font-family:var(--mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--green);margin-bottom:18px;
+  }
+  h1{font-size:clamp(36px,6vw,58px);line-height:1.08;font-weight:800;letter-spacing:-.02em}
+  .tagline{
+    margin-top:20px;font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:720px;
+  }
+  .tagline strong{color:var(--text);font-weight:600}
+  .links{margin-top:30px;display:flex;flex-wrap:wrap;gap:12px}
+  .links a{
+    font-family:var(--mono);font-size:14px;text-decoration:none;color:var(--text);
+    border:1px solid var(--card-border);background:var(--card);
+    padding:10px 18px;border-radius:8px;transition:border-color .15s ease,color .15s ease;
+  }
+  .links a:hover{border-color:var(--green);color:var(--green)}
+  .links a.primary{border-color:var(--green);color:var(--green)}
+  .links a.primary:hover{background:rgba(46,230,168,.08)}
+
+  /* ---------- sections ---------- */
+  section{padding:38px 0}
+  h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:8px}
+  h2 .num{font-family:var(--mono);color:var(--faint);font-size:18px;margin-right:10px}
+  .section-sub{color:var(--muted);max-width:760px;margin-bottom:24px}
+  .honest{
+    font-family:var(--mono);font-size:13px;color:var(--amber);
+    border:1px solid rgba(255,180,84,.35);background:rgba(255,180,84,.06);
+    border-radius:8px;padding:10px 14px;margin-bottom:24px;max-width:760px;
+  }
+
+  /* ---------- terminal card chrome ---------- */
+  .term{
+    background:var(--card);border:1px solid var(--card-border);border-radius:12px;
+    overflow:hidden;
+  }
+  .term-bar{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 16px;border-bottom:1px solid var(--card-border);
+  }
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .term-title{font-family:var(--mono);font-size:13px;color:var(--faint);margin-left:8px}
+  .term-body{padding:22px 24px;font-family:var(--mono);font-size:14.5px;line-height:1.9;overflow-x:auto}
+  .term-body .dim{color:var(--muted)}
+  .term-body .cmd{color:var(--text)}
+  .term-body .cmd::before{content:"$ ";color:var(--green)}
+
+  /* ---------- how it works ---------- */
+  .flow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+  @media (max-width:720px){.flow{grid-template-columns:1fr}}
+  .flow-card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:22px 24px}
+  .flow-card h3{font-size:16px;margin-bottom:12px}
+  .flow-card h3 span{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
+  .flow-card ul{list-style:none}
+  .flow-card li{color:var(--muted);padding:5px 0 5px 20px;position:relative;font-size:15px}
+  .flow-card li::before{content:"▸";position:absolute;left:0;color:var(--green)}
+  .flow-card li strong{color:var(--text);font-weight:600}
+  .verdicts{margin-top:16px;background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:22px 24px}
+  .verdicts h3{font-size:16px;margin-bottom:14px}
+  .verdict-row{display:flex;gap:14px;align-items:baseline;padding:7px 0;font-size:15px;color:var(--muted)}
+  .verdict-row p{flex:1}
+  .origin{margin-top:16px;color:var(--faint);font-size:14.5px;max-width:820px}
+  .origin strong{color:var(--muted);font-weight:600}
+
+  /* ---------- chips ---------- */
+  .chip{
+    font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.06em;
+    padding:3px 12px;border-radius:999px;white-space:nowrap;display:inline-block;
+  }
+  .chip.allow{color:var(--green);background:rgba(46,230,168,.1);border:1px solid rgba(46,230,168,.45)}
+  .chip.block{color:var(--red);background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.45)}
+  .chip.hold{color:var(--amber);background:rgba(255,180,84,.1);border:1px solid rgba(255,180,84,.45)}
+
+  /* ---------- scenarios ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+  .scenario{
+    background:var(--card);border:1px solid var(--card-border);border-radius:12px;
+    padding:22px 24px;display:flex;flex-direction:column;gap:10px;
+  }
+  .scenario .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .scenario h3{font-size:16.5px;line-height:1.35}
+  .scenario .n{font-family:var(--mono);color:var(--faint);font-size:13px}
+  .scenario p{color:var(--muted);font-size:14.5px}
+  .scenario p strong{color:var(--text);font-weight:600}
+  .scenario .mono{font-family:var(--mono);font-size:13.5px;color:var(--muted);word-break:break-all}
+
+  /* ---------- receipt ---------- */
+  .receipt-label{
+    font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;
+    color:var(--green);margin-bottom:16px;
+  }
+  .receipt-line{display:flex;gap:12px;align-items:baseline;padding:3px 0;color:var(--muted);flex-wrap:wrap}
+  .receipt-line .k{color:var(--faint);min-width:150px}
+  .receipt-line .v{color:var(--text)}
+  .receipt-line .arrow{color:var(--faint)}
+  .receipt-final{
+    margin-top:14px;padding-top:14px;border-top:1px dashed var(--card-border);
+    font-size:16px;color:var(--text);
+  }
+  .receipt-final .done{color:var(--green);font-weight:700;letter-spacing:.04em}
+  .lessons{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:720px){.lessons{grid-template-columns:1fr}}
+  .lesson{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:20px 22px}
+  .lesson h3{font-size:15px;margin-bottom:8px}
+  .lesson h3 span{font-family:var(--mono);color:var(--amber);font-size:12px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .lesson p{color:var(--muted);font-size:14.5px}
+  .lesson p strong,.lesson code{color:var(--text)}
+  .lesson code{font-family:var(--mono);font-size:13px}
+
+  /* ---------- run it ---------- */
+  .notes{margin-top:18px;display:flex;flex-direction:column;gap:10px;max-width:860px}
+  .notes p{color:var(--muted);font-size:15px}
+  .notes p strong{color:var(--text);font-weight:600}
+  .notes code{font-family:var(--mono);font-size:13.5px;color:var(--text)}
+
+  /* ---------- footer ---------- */
+  footer{
+    border-top:1px solid var(--card-border);margin-top:30px;
+    padding:30px 0 46px;color:var(--faint);font-size:14px;
+  }
+  footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">PayPal AI Hackathon · Agentic Commerce</div>
+    <h1>Guarded Agent Checkout</h1>
+    <p class="tagline"><strong>An AI agent that can pay is an AI agent that can be robbed.</strong> This is the guard that stands in front of the money.</p>
+    <div class="links">
+      <a class="primary" href="https://www.youtube.com/watch?v=zwKmjErBblw">▶ Watch the demo video</a>
+      <a href="https://github.com/georgeonweb3/paypal-guard">GitHub repo</a>
+      <a href="https://devpost.com/software/guarded-agent-checkout">Devpost entry</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= HOW IT WORKS ================= -->
+  <section id="how">
+    <h2><span class="num">01</span>How it works</h2>
+    <p class="section-sub">An AI agent proposes a purchase. Before any money moves, the guard runs two layers of checks and returns a verdict.</p>
+
+    <div class="flow">
+      <div class="flow-card">
+        <h3><span>Layer 1</span>Pre-flight checks</h3>
+        <ul>
+          <li><strong>Merchant sanity</strong> — is the merchant known, or is it on a block list?</li>
+          <li><strong>Price sanity</strong> — is the quoted price within 1% of the reference median, or is the agent being overcharged?</li>
+          <li><strong>Quote consistency</strong> — does the total equal unit price × quantity + shipping?</li>
+        </ul>
+      </div>
+      <div class="flow-card">
+        <h3><span>Layer 2</span>Spend policy</h3>
+        <ul>
+          <li><strong>Per-transaction cap</strong> — no single payment above the owner's limit.</li>
+          <li><strong>Daily limit</strong> — total spend per day stays inside a set budget.</li>
+          <li><strong>Owner freeze switch</strong> — the owner can freeze all payments instantly.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdicts">
+      <h3>The verdicts</h3>
+      <div class="verdict-row"><span class="chip allow">ALLOW</span><p>The checks pass and the PayPal sandbox payment executes.</p></div>
+      <div class="verdict-row"><span class="chip hold">HOLD</span><p>Something needs a human. Nothing moves until a person approves.</p></div>
+      <div class="verdict-row"><span class="chip block">BLOCK</span><p>Rejected outright. No PayPal call is ever made.</p></div>
+    </div>
+
+    <p class="origin">The checks are ported from the author's earlier agent-safety work: <strong>tgp-guard</strong> (pre-flight checks for autonomous agents) and <strong>Aegis</strong> (on-chain spend control for agents on Base). Same semantics, new rail: PayPal.</p>
+  </section>
+
+  <!-- ================= SCENARIOS ================= -->
+  <section id="scenarios">
+    <h2><span class="num">02</span>Six scenarios</h2>
+    <p class="section-sub">Every proposal the demo throws at the guard, and what the guard does with it.</p>
+    <div class="honest">Guard scenarios run locally against reference data. BLOCK and HOLD verdicts never reach PayPal.</div>
+
+    <div class="grid">
+      <div class="scenario">
+        <div class="top"><h3>Normal purchase</h3><span class="chip allow">ALLOW</span></div>
+        <p class="n">Scenario 1</p>
+        <p>Image generation credit, <strong>$42.00</strong>. Known merchant, fair price, policy clear — the payment goes through.</p>
+      </div>
+
+      <div class="scenario">
+        <div class="top"><h3>Block-listed merchant</h3><span class="chip block">BLOCK</span></div>
+        <p class="n">Scenario 2</p>
+        <p class="mono">shady-deals.example</p>
+        <p>On the block list. No order is created. Nothing is charged.</p>
+      </div>
+
+      <div class="scenario">
+        <div class="top"><h3>Over-limit amount</h3><span class="chip block">BLOCK</span></div>
+        <p class="n">Scenario 3</p>
+        <p><strong>$450</strong> against a <strong>$100</strong> per-transaction cap. Over the line, payment refused.</p>
+      </div>
+
+      <div class="scenario">
+        <div class="top"><h3>Off-market price</h3><span class="chip block">BLOCK</span></div>
+        <p class="n">Scenario 4</p>
+        <p>Quoted price is more than <strong>1% off</strong> the reference median. The agent is being overcharged — blocked.</p>
+      </div>
+
+      <div class="scenario">
+        <div class="top"><h3>Unknown merchant</h3><span class="chip hold">HOLD</span></div>
+        <p class="n">Scenario 5</p>
+        <p>Merchant the guard has never seen. Not an automatic no — a human must approve before anything moves.</p>
+      </div>
+
+      <div class="scenario">
+        <div class="top"><h3>Policy frozen</h3><span class="chip block">BLOCK</span></div>
+        <p class="n">Scenario 6</p>
+        <p>The owner has frozen the policy. Every payment is blocked until the owner unfreezes it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= REAL SANDBOX RUN ================= -->
+  <section id="sandbox">
+    <h2><span class="num">03</span>The real sandbox run</h2>
+    <p class="section-sub">Scenario 1, run for real against the PayPal sandbox — not a mock-up.</p>
+
+    <div class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">paypal-guard — capture</span>
+      </div>
+      <div class="term-body">
+        <div class="receipt-label">REAL PAYPAL SANDBOX RUN — 5 NOV 2026 (SANDBOX TEST MONEY)</div>
+        <div class="receipt-line"><span class="k">Guard verdict</span><span class="v" style="color:var(--green);font-weight:700">ALLOW</span></div>
+        <div class="receipt-line"><span class="k">Order created</span><span class="v">48492101JX0814434</span></div>
+        <div class="receipt-line"><span class="k">Buyer approval</span><span class="v">APPROVED</span></div>
+        <div class="receipt-line"><span class="k">Amount</span><span class="v">$42.00</span></div>
+        <div class="receipt-final">Capture status: <span class="done">COMPLETED</span></div>
+      </div>
+    </div>
+
+    <div class="lessons">
+      <div class="lesson">
+        <h3><span>Sandbox lesson 1</span>Merchant country decides</h3>
+        <p>The merchant account's country decides whether it can <strong>receive</strong> payments. A merchant in a send-only country gets seller-restricted on every checkout. The completed run used a <strong>US sandbox merchant</strong>.</p>
+      </div>
+      <div class="lesson">
+        <h3><span>Sandbox lesson 2</span>Use the Pay Now flow</h3>
+        <p>The default review checkout flow can hang. The <strong>Pay Now</strong> flow (<code>user_action: PAY_NOW</code>, <code>NO_SHIPPING</code>) completes. Funding source matters too: a card-funded approval captured <strong>COMPLETED</strong>, while a bank-funded one captured <strong>PENDING</strong>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RUN IT ================= -->
+  <section id="run">
+    <h2><span class="num">04</span>Run it yourself</h2>
+    <p class="section-sub">Clone the repo and run the demo locally.</p>
+
+    <div class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">terminal</span>
+      </div>
+      <div class="term-body">
+        <div class="cmd">node demo.mjs all --fresh</div>
+        <div class="dim">&nbsp;&nbsp;# all six scenarios</div>
+        <div class="cmd">node demo.mjs allow</div>
+        <div class="dim">&nbsp;&nbsp;# one scenario: allow | merchant | overlimit | offmarket | hold | freeze</div>
+        <div class="cmd">node demo.mjs capture &lt;ORDER_ID&gt;</div>
+        <div class="dim">&nbsp;&nbsp;# capture an approved sandbox order</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <p><strong>Zero dependencies. Node ≥ 20.</strong></p>
+      <p>Without PayPal sandbox credentials the demo runs in a clearly labelled <strong>MOCK mode</strong> — simulated lines say SIMULATED. Mock output is never a PayPal result.</p>
+      <p>With sandbox credentials (<code>PAYPAL_CLIENT_ID</code> / <code>PAYPAL_CLIENT_SECRET</code> from a sandbox app at developer.paypal.com) the ALLOW path makes real sandbox calls.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Built by George Agbe for the PayPal AI Hackathon. MIT licensed.</span>
+    <span>Sandbox only — the PayPal host is hardcoded to the sandbox; there is deliberately no live mode.</span>
+  </div>
+</footer>
+
+</body>
+</html>
