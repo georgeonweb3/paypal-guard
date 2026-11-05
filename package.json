@@ -1,0 +1,1 @@
+{"description":"Guarded Agent Checkout: tgp-guard pre-flight checks + Aegis spend policy in front of PayPal sandbox payments. PayPal AI Hackathon 2026 (lean entry).","engines":{"node":">=20"},"license":"MIT","name":"paypal-guard","scripts":{"demo":"node demo.mjs all","demo:fresh":"node demo.mjs all --fresh"},"type":"module","version":"0.1.0"}

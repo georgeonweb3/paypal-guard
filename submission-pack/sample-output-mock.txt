@@ -1,0 +1,65 @@
+========================================================================
+GUARDED AGENT CHECKOUT - an AI agent pays, a guard decides first
+PAYMENT MODE: *** MOCK ***  No PayPal credentials found, so the
+payment step is SIMULATED locally. Nothing below is a real PayPal
+call. Set PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET (sandbox app)
+to run the identical flow against the real PayPal sandbox.
+========================================================================
+
+--- SCENARIO: allow - Legit purchase - should go through ---
+AGENT proposes: buy 1 x "USB-C docking hub" from AnkerDirect for $42.00
+  ALLOW [merchant] "AnkerDirect" is a known merchant, no list match
+  ALLOW [price] quoted 42.00 within 0.94% of reference median 42.40 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 42.00 = 42.00 x 1 + 0.00 shipping
+  ALLOW [policy] within policy: per-tx cap 100.00, daily 0.00 + 42.00 <= 150.00
+GUARD VERDICT: ALLOW
+PAYMENT: order MOCK-ORDER-0001 - CREATED (SIMULATED - no PayPal call was made)  [SIMULATED]
+  Capture: COMPLETED (SIMULATED - no PayPal call was made)  [SIMULATED]
+  Policy ledger: $42.00 recorded. Spent today: $42.00 / $150
+
+--- SCENARIO: merchant - Blocked merchant - should BLOCK before payment ---
+AGENT proposes: buy 1 x "Laptop stand" from Shadow Imports Ltd for $35.00
+  BLOCK [merchant] "Shadow Imports Ltd" is listed on the demo sanctions list (exact name match)
+  ALLOW [price] quoted 35.00 within 0.57% of reference median 35.20 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 35.00 = 35.00 x 1 + 0.00 shipping
+  ALLOW [policy] within policy: per-tx cap 100.00, daily 42.00 + 35.00 <= 150.00
+GUARD VERDICT: BLOCK
+PAYMENT: none. Blocked by the guard - no PayPal call was made.
+
+--- SCENARIO: overlimit - Over the per-transaction cap - policy BLOCK ---
+AGENT proposes: buy 1 x "RTX workstation GPU" from BaseMart for $450.00
+  ALLOW [merchant] "BaseMart" is a known merchant, no list match
+  ALLOW [price] quoted 450.00 within 0.44% of reference median 452.00 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 450.00 = 450.00 x 1 + 0.00 shipping
+  BLOCK [policy] 450.00 exceeds the per-transaction cap of 100.00
+GUARD VERDICT: BLOCK
+PAYMENT: none. Blocked by the guard - no PayPal call was made.
+
+--- SCENARIO: offmarket - Off-market price (the classic agent overpay) - price BLOCK ---
+AGENT proposes: buy 1 x "USB-C docking hub" from AnkerDirect for $79.00
+  ALLOW [merchant] "AnkerDirect" is a known merchant, no list match
+  BLOCK [price] quoted 79.00 for "USB-C docking hub" is 86.32% off the reference median 42.40 - off-market quote
+  ALLOW [quote] quote consistent: total 79.00 = 79.00 x 1 + 0.00 shipping
+  ALLOW [policy] within policy: per-tx cap 100.00, daily 42.00 + 79.00 <= 150.00
+GUARD VERDICT: BLOCK
+PAYMENT: none. Blocked by the guard - no PayPal call was made.
+
+--- SCENARIO: hold - Unknown merchant - HOLD for a human ---
+AGENT proposes: buy 1 x "Mechanical keyboard" from RandomSeller99 for $25.00
+  HOLD  [merchant] "RandomSeller99" is not a known merchant and cannot be cleared - a human must approve
+  ALLOW [price] quoted 25.00 within 0.40% of reference median 25.10 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 25.00 = 25.00 x 1 + 0.00 shipping
+  ALLOW [policy] within policy: per-tx cap 100.00, daily 42.00 + 25.00 <= 150.00
+GUARD VERDICT: HOLD
+PAYMENT: none. Held for human approval - the agent cannot proceed alone.
+
+--- SCENARIO: freeze - Owner freeze switch on - everything BLOCKs ---
+AGENT proposes: buy 1 x "USB-C docking hub" from AnkerDirect for $42.00
+  ALLOW [merchant] "AnkerDirect" is a known merchant, no list match
+  ALLOW [price] quoted 42.00 within 0.94% of reference median 42.40 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 42.00 = 42.00 x 1 + 0.00 shipping
+  BLOCK [policy] policy is FROZEN by the owner - no agent payments until unfrozen
+GUARD VERDICT: BLOCK
+PAYMENT: none. Blocked by the guard - no PayPal call was made.
+
+Done. Mode was MOCK. Full log: evidence/demo-log.jsonl

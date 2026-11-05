@@ -1,0 +1,1 @@
+{"dailyLimitUSD":150,"frozen":false,"note":"Owner-set spend policy (the Aegis layer). Edit freely; set frozen to true to halt all agent payments. Amounts in USD.","perTxCapUSD":100}
