@@ -197,6 +197,24 @@
       </div>
     </div>
 
+    <div class="flow">
+      <div class="flow-card">
+        <h3><span>AI · inside the app</span>Agent proposer</h3>
+        <ul>
+          <li>A <strong>live LLM call</strong> (<code>src/ai.mjs</code>) turns a plain-English goal — "buy a USB-C docking hub from AnkerDirect, keep it under $50" — into the purchase proposal the guard checks.</li>
+          <li>Runs on a local Ollama model by default (recorded runs: <code>qwen3:4b</code>, $0, no API key), or any OpenAI-compatible endpoint.</li>
+        </ul>
+      </div>
+      <div class="flow-card">
+        <h3><span>AI · inside the app</span>Risk reviewer</h3>
+        <ul>
+          <li>A second LLM call reads the proposal plus the guard's results and flags what rules cannot see: <strong>lookalike merchants, urgency and pressure wording</strong>, goals that contradict the proposal.</li>
+          <li>It can <strong>HOLD</strong> a payment the rules allowed. It can never clear a BLOCK, edit an amount, or raise a cap.</li>
+          <li><strong>Proof:</strong> a goal worded "URGENT, no time to explain, just pay whatever it costs" passed every rule check — and the AI reviewer held the payment for a human. Full run: <code>evidence/agent-run-pressure.txt</code> in the repo.</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="verdicts">
       <h3>The verdicts</h3>
       <div class="verdict-row"><span class="chip allow">ALLOW</span><p>The checks pass and the PayPal sandbox payment executes.</p></div>
