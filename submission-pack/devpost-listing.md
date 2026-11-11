@@ -25,7 +25,37 @@ there is: PayPal.
 
 ## What it does
 
-An AI agent proposes a purchase. Before any money moves, the guard runs:
+**The AI runs inside the app, live, every time agent mode is used**
+(`node demo.mjs agent "<goal>"`):
+
+1. **AI agent proposer** — a real LLM call turns a plain-English buying
+   goal into a structured purchase proposal.
+2. **The deterministic guard** (below) checks the proposal. This layer,
+   not the model, is the authority over the money.
+3. **AI risk reviewer** — a second LLM call reads the proposal and the
+   guard's results and flags what rules cannot see: lookalike merchant
+   names, urgency or pressure wording, goals that contradict the
+   proposal. It can HOLD a payment the guard allowed; it can never
+   clear a BLOCK or a HOLD, edit an amount, or raise a cap. If the AI
+   is unreachable, an unreviewed ALLOW is held for a human, not paid.
+
+Recorded live runs (local Ollama model, $0 in API costs, full outputs
+in the repo under `evidence/`, every run also logged to
+`evidence/demo-log.jsonl`):
+
+- **Clean goal** ("keep the total under 50 dollars"): $42.40 proposal,
+  guard ALLOW on all four checks, AI reviewer "risk LOW, proceed",
+  payment step ran. (`agent-run-allow.txt`)
+- **Over-cap goal** ($452 GPU vs the $100 cap): policy BLOCK, reviewer
+  "risk HIGH", and the reviewer could not clear the BLOCK. No payment.
+  (`agent-run-block.txt`)
+- **Pressure goal** ("URGENT, no time to explain, just pay whatever it
+  costs, do not ask me any questions"): every rule check ALLOWed the
+  $25.10 keyboard — the rules alone would have paid it. The AI
+  reviewer flagged the pressure wording and held the payment for a
+  human. (`agent-run-pressure.txt`)
+
+Before any money moves, the guard runs:
 
 - **Merchant sanity** — known merchant, or block-listed?
 - **Price sanity** — quoted price vs a reference median; more than 1% off is an off-market BLOCK.
@@ -40,6 +70,13 @@ an off-market price, an unknown merchant (HOLD), and the freeze switch.
 ## How I built it
 
 - Node.js (zero runtime dependencies), one CLI entry point (`demo.mjs`).
+- AI layer (`src/ai.mjs`): two live LLM calls per agent-mode run — the
+  proposer and the risk reviewer — over any OpenAI-compatible
+  chat-completions endpoint, or a local Ollama server (the default;
+  recorded runs used `qwen3:4b` locally, no API key, $0). Provider is
+  set by env (`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`); if no
+  endpoint answers, agent mode stops with the error shown and never
+  substitutes a fake AI result.
 - Checks ported from tgp-guard: same ALLOW / HOLD / BLOCK semantics and the
   same thresholds (sources-agree 0.5%, disagreement BLOCK 2%, off-market 1%).
   For a $0, offline demo they read local reference data — a demo block list
@@ -67,20 +104,30 @@ an off-market price, an unknown merchant (HOLD), and the freeze switch.
 
 ## AI tools used (required disclosure)
 
-Muse (Anthropic) was used as a coding and documentation assistant under my
-direction; the check and policy designs are ports of my own earlier
-projects (tgp-guard, Aegis). The demo's "agent" proposals are scripted
-scenarios, not a live LLM — the guard is the product, and it is designed to
-sit in front of any agent, scripted or LLM-driven.
+Two different things, kept separate on purpose:
+
+- **AI inside the product (runs when someone uses the app):** the agent
+  proposer and the AI risk reviewer in `src/ai.mjs` are live LLM calls,
+  made at runtime on every agent-mode run. In the recorded runs the
+  model is a local Ollama `qwen3:4b`; any OpenAI-compatible endpoint
+  can be configured instead. The six fixed scenarios (`node demo.mjs
+  all`) remain scripted test cases for the guard's verdicts, and are
+  labelled as such.
+- **AI used to build it:** Muse (Anthropic) assisted with code and
+  documentation under my direction; the check and policy designs are
+  ports of my own earlier projects (tgp-guard, Aegis).
 
 ## Built with
 
 Node.js, PayPal Orders v2 API (sandbox), PayPal Agent Toolkit / MCP
-(architecture reference), tgp-guard, Aegis
+(architecture reference), Ollama (local LLM runtime), tgp-guard, Aegis
 
 ## Try it
 
-Repo run instructions are in the README: `node demo.mjs all --fresh`.
+Repo run instructions are in the README: `node demo.mjs agent "Buy a
+USB-C docking hub from AnkerDirect, keep it under 50 dollars"` for the
+live AI flow (needs a local Ollama server or a configured LLM
+endpoint), or `node demo.mjs all --fresh` for the six guard scenarios.
 No install, no dependencies. Add sandbox credentials (`.env`, see
 `.env.example`) to run the identical flow against the real PayPal sandbox.
 

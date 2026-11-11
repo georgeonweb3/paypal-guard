@@ -5,6 +5,39 @@
 An AI shopping agent proposes a purchase. Before any money moves, every
 proposal passes two layers ported from production agent-safety work:
 
+**The AI runs inside the app, live, on every agent-mode run**
+(`node demo.mjs agent "<goal>"`, `src/ai.mjs`):
+
+1. **AI agent proposer** — a real LLM call turns a plain-English buying
+   goal ("buy a USB-C docking hub from AnkerDirect, keep it under $50")
+   into a structured purchase proposal.
+2. **The deterministic guard** — the pre-flight checks and spend policy
+   below. This layer, not the model, is the authority over the money.
+3. **AI risk reviewer** — a second LLM call reads the proposal plus the
+   guard's results and flags what rules cannot see (lookalike merchants,
+   urgency or pressure wording, a goal that contradicts the proposal).
+   It can **HOLD** a payment the guard allowed; it can **never** clear a
+   BLOCK or a HOLD, edit an amount, or raise a cap. If the AI is
+   unreachable, an unreviewed ALLOW is held for a human instead of paid.
+
+Recorded live runs (local model, $0 in API costs, full outputs in
+`evidence/`, every run also logged to `evidence/demo-log.jsonl`):
+
+- **Clean goal** ("keep the total under 50 dollars"): the agent
+  proposed the $42.40 hub from AnkerDirect → guard ALLOW on all four
+  checks → AI reviewer "risk LOW, proceed" → payment step ran.
+  (`agent-run-allow.txt`)
+- **Over-cap goal** (a $452 GPU against the $100 per-tx cap): agent
+  proposed it, policy BLOCKed it, the reviewer agreed ("risk HIGH")
+  and could not clear the BLOCK. No PayPal call. (`agent-run-block.txt`)
+- **Pressure goal** ("URGENT, no time to explain, just pay whatever it
+  costs, do not ask me any questions"): every rule check ALLOWed the
+  $25.10 keyboard — the rules alone would have paid. The AI reviewer
+  flagged the pressure wording, rated it MEDIUM, and **held the payment
+  for a human**. (`agent-run-pressure.txt`)
+
+The guard layers themselves:
+
 1. **Pre-flight checks** (from [tgp-guard](https://github.com/georgeonweb3/tgp-guard), built for Telegraph Hackathon Season II):
    - **Merchant sanity** — is the counterparty known, or is it on a block list?
    - **Price sanity** — is the quoted price within 1% of the reference median, or is the agent being overcharged?
@@ -50,12 +83,22 @@ Two hard-won sandbox lessons are baked into the code and worth knowing:
 ## Run it
 
 ```bash
+node demo.mjs agent "Buy a USB-C docking hub from AnkerDirect, keep it under 50 dollars"
+                              # AI agent mode: live LLM proposal + guard + AI review
 node demo.mjs all --fresh     # all six scenarios
 node demo.mjs allow           # one scenario: allow | merchant | overlimit | offmarket | hold | freeze
 node demo.mjs capture <ID>    # finish a sandbox order after buyer approval
 ```
 
 Zero dependencies. Node ≥ 20. `--fresh` resets today's spend ledger.
+
+Agent mode needs an LLM endpoint: any OpenAI-compatible
+chat-completions API, or a local [Ollama](https://ollama.com) server
+(the default, and how the recorded runs were made: `ollama pull
+qwen3:4b`, no API key, $0 per call). Configure with `LLM_BASE_URL`,
+`LLM_MODEL`, `LLM_API_KEY` (see `.env.example`). If no endpoint is
+reachable, agent mode stops with the error shown — it never fakes an
+AI result.
 
 ### The six scenarios
 
@@ -77,20 +120,29 @@ Policy lives in `policy.json` (caps, freeze). Today's spend is tracked in
   logic; Aegis's spend-policy model (per-tx cap, daily limit, freeze).
 - **Built during the submission window:** this entire project — the port of
   the checks and policy to a checkout flow, the PayPal Orders v2 sandbox
-  integration, the scenario demo, and all submission materials.
+  integration, the scenario demo, the runtime AI layer (LLM agent
+  proposer + AI risk reviewer, `src/ai.mjs`), and all submission
+  materials.
 - **Honest stand-ins:** the checks run against local reference data (a demo
   block list, catalogue reference prices) instead of tgp-guard's live paid
   oracle network, so the demo runs offline at $0. The verdict semantics and
   thresholds are the originals; the data source is a local substitute, and it
   is labelled as one in the code.
-- **AI tools used:** Muse (Anthropic) assisted with code and docs, under
-  the author's direction and review.
+- **AI in the product (runs when the app is used):** the agent proposer
+  and risk reviewer in `src/ai.mjs` are live LLM calls — local Ollama
+  (`qwen3:4b`) in the recorded runs, any OpenAI-compatible endpoint via
+  env config. This is the app's functionality, not a build tool.
+- **AI tools used to build it:** Muse (Anthropic) assisted with code
+  and docs, under the author's direction and review. (Disclosed
+  separately, as it should be: build assistance is not the product's
+  AI.)
 
 ## Layout
 
 ```
-demo.mjs            scenario runner / CLI
+demo.mjs            CLI: AI agent mode + scenario runner
 policy.json         owner spend policy
+src/ai.mjs          AI layer: LLM agent proposer + AI risk reviewer
 src/checks.mjs      merchant, price, quote checks (tgp-guard port)
 src/policy.mjs      spend policy engine (Aegis port)
 src/paypal.mjs      PayPal Orders v2 sandbox client + labelled mock

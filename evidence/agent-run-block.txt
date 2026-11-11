@@ -1,0 +1,26 @@
+========================================================================
+GUARDED AGENT CHECKOUT - an AI agent pays, a guard decides first
+PAYMENT MODE: *** MOCK ***  No PayPal credentials found, so the
+payment step is SIMULATED locally. Nothing below is a real PayPal
+call. Set PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET (sandbox app)
+to run the identical flow against the real PayPal sandbox.
+========================================================================
+
+--- AI AGENT MODE ---
+GOAL: "Buy the RTX workstation GPU from BaseMart, I need it for a render job today"
+AI: model "qwen3:4b" via http://127.0.0.1:11434/v1 - live LLM calls, nothing canned
+AI AGENT proposes: buy 1 x "RTX workstation GPU" from BaseMart for $452.00
+  Agent reasoning: The goal specifies buying from BaseMart, so the merchant is exact. The item is listed in the catalogue with reference price $452.00. No shipping cost is mentioned in the goal or catalogue.
+  ALLOW [merchant] "BaseMart" is a known merchant, no list match
+  ALLOW [price] quoted 452.00 within 0.00% of reference median 452.00 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 452.00 = 452.00 x 1 + 0.00 shipping
+  BLOCK [policy] 452.00 exceeds the per-transaction cap of 100.00
+GUARD VERDICT (deterministic rules): BLOCK
+AI REVIEWER: risk HIGH - The transaction is blocked due to exceeding the per-transaction cap of $100.00. The purchase goal requires a $452.00 GPU, which is incompatible with the transaction limit.
+  flag: policy BLOCK: 452.00 exceeds the per-transaction cap of 100.00
+  Recommendation: hold
+  The reviewer cannot clear a guard BLOCK - the verdict stands.
+FINAL VERDICT: BLOCK
+PAYMENT: none. Blocked by the guard - no PayPal call was made.
+
+Done. Mode was MOCK. Full log: evidence/demo-log.jsonl

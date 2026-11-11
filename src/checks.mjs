@@ -22,7 +22,7 @@ const BLOCKED_MERCHANTS = [
   { name: "QuickCryptoDeals", list: "demo fraud list", note: "chargeback fraud reports" },
 ];
 
-const KNOWN_MERCHANTS = ["AnkerDirect", "BaseMart", "Lagos Gadgets Hub"];
+export const KNOWN_MERCHANTS = ["AnkerDirect", "BaseMart", "Lagos Gadgets Hub"];
 
 export function merchantCheck(merchant) {
   const hit = BLOCKED_MERCHANTS.find(

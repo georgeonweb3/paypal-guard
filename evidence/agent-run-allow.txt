@@ -1,0 +1,26 @@
+========================================================================
+GUARDED AGENT CHECKOUT - an AI agent pays, a guard decides first
+PAYMENT MODE: *** MOCK ***  No PayPal credentials found, so the
+payment step is SIMULATED locally. Nothing below is a real PayPal
+call. Set PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET (sandbox app)
+to run the identical flow against the real PayPal sandbox.
+========================================================================
+
+--- AI AGENT MODE ---
+GOAL: "Buy a USB-C docking hub from AnkerDirect for our desk setup, keep the total under 50 dollars"
+AI: model "qwen3:4b" via http://127.0.0.1:11434/v1 - live LLM calls, nothing canned
+AI AGENT proposes: buy 1 x "USB-C docking hub" from AnkerDirect for $42.40
+  Agent reasoning: The goal specifies AnkerDirect and the USB-C docking hub is within the $50 budget with no shipping cost.
+  ALLOW [merchant] "AnkerDirect" is a known merchant, no list match
+  ALLOW [price] quoted 42.40 within 0.00% of reference median 42.40 (sources agree within 0.40%)
+  ALLOW [quote] quote consistent: total 42.40 = 42.40 x 1 + 0.00 shipping
+  ALLOW [policy] within policy: per-tx cap 100.00, daily 0.00 + 42.40 <= 150.00
+GUARD VERDICT (deterministic rules): ALLOW
+AI REVIEWER: risk LOW - The purchase matches the goal of buying a USB-C docking hub from AnkerDirect under $50 with no detected risks.
+  Recommendation: proceed
+FINAL VERDICT: ALLOW
+PAYMENT: order MOCK-ORDER-0001 - CREATED (SIMULATED - no PayPal call was made)  [SIMULATED]
+  Capture: COMPLETED (SIMULATED - no PayPal call was made)  [SIMULATED]
+  Policy ledger: $42.40 recorded. Spent today: $42.40 / $150
+
+Done. Mode was MOCK. Full log: evidence/demo-log.jsonl
